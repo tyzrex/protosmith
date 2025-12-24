@@ -12,15 +12,17 @@ export const {{name}} = (
   request: {{input}},
   retries: number = 1
 ): Promise<{{output}}> =>
-  grpcInterceptor.intercept<{{../schema.name}}Client>({
-    client: serviceClients.{{../module}}ServiceClient,
-    method: (c) => c.{{originalName}}.bind(c),
-    args: request,
-    retries
-  });
+  {
+    return grpcInterceptor.intercept<{{../schema.name}}Client>({
+      client: serviceClients.{{../module}}ServiceClient,
+      method: (client) => client.{{name}}.bind(client),
+      args: request,
+      retries
+    });
+  }
 
 {{/each}}
-export const {{module}}GrpcRequests = {
+export const {{module}}ServiceRequests = {
   {{#each schema.methods}}{{name}},
   {{/each}}
 };

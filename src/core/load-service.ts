@@ -139,6 +139,7 @@ export async function loadServiceDescriptor(
           outputFullType: outputInfo.fullTypeName,
         };
         logger.debug(`  - ${method.name}(${method.input}) → ${method.output}`);
+        logger.debug(`method details:`, method);
         return method;
       }),
     };
