@@ -1,22 +1,25 @@
 import { Command } from "commander";
 import path from "path";
 import fs from "fs";
-import { logger, LogLevel } from "@/utils/logger.js";
-import { findServiceDescriptors, getDirectories } from "@/utils/file-finder.js";
+import { logger, LogLevel } from "../utils/logger.js";
+import {
+  findServiceDescriptors,
+  getDirectories,
+} from "../utils/file-finder.js";
 import { select, input, checkbox } from "@inquirer/prompts";
-import { loadServiceDescriptor } from "@/core/load-service.js";
-import { resolvePaths } from "@/core/resolve-paths.js";
+import { loadServiceDescriptor } from "../core/load-service.js";
+import { resolvePaths } from "../core/resolve-paths.js";
 import type {
   Ctx,
   InteractiveInput,
   NonInteractiveInput,
   Options,
   StructureType,
-} from "@/types/index.js";
-import { generateTransport } from "@/generators/transport-generator.js";
-import { generateContract } from "@/generators/contract-generator.js";
-import { generateRepository } from "@/generators/repository-generator.js";
-import { generateService } from "@/generators/service-generator.js";
+} from "../types/index.js";
+import { generateTransport } from "../generators/transport-generator.js";
+import { generateContract } from "../generators/contract-generator.js";
+import { generateRepository } from "../generators/repository-generator.js";
+import { generateService } from "../generators/service-generator.js";
 
 export const generateCommand = new Command("generate")
   .option("--interactive", "interactive mode")
