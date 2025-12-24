@@ -4,19 +4,19 @@ import fs from "fs";
 import { logger, LogLevel } from "@/utils/logger.js";
 import { findServiceDescriptors, getDirectories } from "@/utils/file-finder.js";
 import { select, input, checkbox } from "@inquirer/prompts";
-
-interface Options {
-  interactive?: boolean;
-  service?: string;
-  descriptor?: string;
-  module?: string;
-  protoDir?: string;
-  out?: string;
-  structure?: "clean" | "modules";
-  layers?: string;
-  verbose?: boolean;
-  debug?: boolean;
-}
+import { loadServiceDescriptor } from "@/core/load-service.js";
+import { resolvePaths } from "@/core/resolve-paths.js";
+import type {
+  Ctx,
+  InteractiveInput,
+  NonInteractiveInput,
+  Options,
+  StructureType,
+} from "@/types/index.js";
+import { generateTransport } from "@/generators/transport-generator.js";
+import { generateContract } from "@/generators/contract-generator.js";
+import { generateRepository } from "@/generators/repository-generator.js";
+import { generateService } from "@/generators/service-generator.js";
 
 export const generateCommand = new Command("generate")
   .option("--interactive", "interactive mode")
@@ -37,139 +37,305 @@ export const generateCommand = new Command("generate")
   .option("--verbose", "enable verbose logging")
   .option("--debug", "enable debug logging")
   .action(async (opts: Options) => {
-    if (opts.debug) {
-      logger.setLevel(LogLevel.DEBUG);
-    } else if (opts.verbose) {
-      logger.setLevel(LogLevel.INFO);
-    } else {
-      logger.setLevel(LogLevel.WARN);
-    }
-    logger.debug("Starting generation with options:", opts);
+    try {
+      if (opts.debug) {
+        logger.setLevel(LogLevel.DEBUG);
+      } else if (opts.verbose) {
+        logger.setLevel(LogLevel.INFO);
+      } else {
+        logger.setLevel(LogLevel.WARN);
+      }
+      logger.debug("Starting generation with options:", opts);
 
-    let inputData: {
-      descriptor: string;
-      out: string;
-      service: string;
-      module: string;
-      structure: "clean" | "modules";
-      layers: string[];
-    };
+      let interactiveInputData: InteractiveInput = {
+        descriptor: "",
+        out: "",
+        service: "",
+        module: "",
+        structure: "clean",
+        layers: [],
+      };
 
-    if (opts.interactive) {
-      console.log("");
-      logger.info("🔍 Scanning for service descriptor files...");
-      const serviceFiles = findServiceDescriptors();
+      const layers = opts.layers
+        ? opts.layers.split(",").map((l: string) => l.trim())
+        : [];
 
-      logger.debug("Discovered service descriptor files:", serviceFiles);
+      let inputData: NonInteractiveInput = {
+        ...opts,
+        layers,
+      };
 
-      if (serviceFiles.length === 0) {
-        logger.error(
-          "No service descriptor files found (files ending with -service.ts)"
+      if (opts.interactive) {
+        console.log("");
+        logger.info("🔍 Scanning for service descriptor files...");
+        const serviceFiles = findServiceDescriptors();
+
+        logger.debug("Discovered service descriptor files:", serviceFiles);
+
+        if (serviceFiles.length === 0) {
+          logger.error(
+            "No service descriptor files found (files ending with -service.ts)"
+          );
+          logger.info(
+            "Make sure you have compiled your proto files first with protobuf-ts"
+          );
+          process.exit(1);
+        }
+
+        logger.info(`✓ Found ${serviceFiles.length} service descriptor(s)\n`);
+
+        // Interactive prompts with file selection
+        const descriptor = await select({
+          message: "Select service descriptor file:",
+          choices: serviceFiles,
+        });
+
+        const outDir = await select({
+          message: "Select output directory:",
+          choices: [...getDirectories(), "Enter custom path"],
+          default: "src",
+        });
+
+        const serviceName = await input({
+          message: "Service name (e.g., CustomerService):",
+          validate: (val: string) =>
+            val.length > 0 || "Service name is required",
+        });
+
+        const moduleName = await input({
+          message: "Module name (e.g., customer):",
+          validate: (val: string) =>
+            val.length > 0 || "Module name is required",
+        });
+
+        const structure: "clean" | "modules" = await select({
+          message: "Select output structure:",
+          choices: [
+            {
+              name: "clean",
+              description: "Clean Architecture",
+              value: "clean",
+            },
+            {
+              name: "modules",
+              description: "Modules/[module]/... structure",
+              value: "modules",
+            },
+          ],
+        });
+
+        const layers = await checkbox({
+          message: "Select layers to generate:",
+          choices: [
+            {
+              name: "Transport (gRPC requests)",
+              value: "transport",
+              checked: true,
+            },
+            {
+              name: "Contract (interfaces)",
+              value: "contract",
+              checked: false,
+            },
+            {
+              name: "Repository (implementation)",
+              value: "repository",
+              checked: false,
+            },
+            {
+              name: "Service (business logic)",
+              value: "service",
+              checked: false,
+            },
+          ],
+          validate: (val) => {
+            return val.length > 0 || "Select at least one layer to generate";
+          },
+          theme: {
+            icon: {
+              checked: " ✔",
+              unchecked: " ✖",
+              cursor: "➔",
+            },
+          },
+        });
+
+        interactiveInputData = {
+          descriptor,
+          out:
+            outDir === "Enter custom path"
+              ? await input({
+                  message: "Enter custom output path:",
+                  validate: (val: string) =>
+                    val.length > 0 || "Output path is required",
+                })
+              : outDir,
+          service: serviceName,
+          module: moduleName,
+          structure: structure,
+          layers,
+        };
+
+        logger.info("✅ Input collection complete.\n");
+        logger.debug("Final input data:", inputData);
+      } else if (!opts.service || !opts.descriptor || !opts.module) {
+        console.log("");
+        logger.warn(
+          "Missing required options. Switching to interactive mode...\n"
         );
-        logger.info(
-          "Make sure you have compiled your proto files first with protobuf-ts"
+
+        // Find all service descriptor files
+        logger.info("🔍 Scanning for service descriptor files...");
+        const serviceFiles = findServiceDescriptors();
+
+        logger.debug("Discovered service descriptor files:", serviceFiles);
+
+        if (serviceFiles.length === 0) {
+          logger.error(
+            "No service descriptor files found (files ending with -service.ts)"
+          );
+          logger.info(
+            "Make sure you have compiled your proto files first with protobuf-ts"
+          );
+          process.exit(1);
+        }
+
+        logger.info(`✓ Found ${serviceFiles.length} service descriptor(s)\n`);
+      } else {
+        inputData = {
+          ...opts,
+          layers: opts.layers
+            ? opts.layers.split(",").map((l: string) => l.trim())
+            : ["transport", "contract", "repository", "service"],
+        };
+      }
+
+      const finalInput = opts.interactive ? interactiveInputData : inputData;
+
+      if (!finalInput.service) {
+        logger.error(
+          "Service name is required. Use --service <name> or --interactive"
+        );
+        process.exit(1);
+      }
+      if (!finalInput.descriptor) {
+        logger.error(
+          "Descriptor path is required. Use --descriptor <path> or --interactive"
+        );
+        process.exit(1);
+      }
+      if (!finalInput.module) {
+        logger.error(
+          "Module name is required. Use --module <name> or --interactive"
         );
         process.exit(1);
       }
 
-      logger.info(`✓ Found ${serviceFiles.length} service descriptor(s)\n`);
+      logger.step("VALIDATE", "Checking descriptor file...");
 
-      // Interactive prompts with file selection
-      const descriptor = await select({
-        message: "Select service descriptor file:",
-        choices: serviceFiles,
-      });
+      // Resolve descriptor path safely
+      const descriptorPath = path.isAbsolute(finalInput.descriptor)
+        ? finalInput.descriptor
+        : path.join(process.cwd(), finalInput.descriptor);
 
-      const outDir = await select({
-        message: "Select output directory:",
-        choices: [...getDirectories(), "Enter custom path"],
-        default: "src",
-      });
+      logger.debug("Resolved descriptor path:", descriptorPath);
 
-      const serviceName = await input({
-        message: "Service name (e.g., CustomerService):",
-        validate: (val: string) => val.length > 0 || "Service name is required",
-      });
+      if (!fs.existsSync(descriptorPath)) {
+        logger.error(`Descriptor file not found: ${descriptorPath}`);
+        logger.info(
+          "Make sure to compile your .proto files first using protobuf-ts"
+        );
+        logger.info(
+          "Example: npx protoc --ts_out . --proto_path . proto/*.proto"
+        );
+        process.exit(1);
+      }
 
-      const moduleName = await input({
-        message: "Module name (e.g., customer):",
-        validate: (val: string) => val.length > 0 || "Module name is required",
-      });
-
-      const structure: "clean" | "modules" = await select({
-        message: "Select output structure:",
-        choices: [
-          {
-            name: "clean",
-            description: "Clean Architecture",
-            value: "clean",
-          },
-          {
-            name: "modules",
-            description: "Modules/[module]/... structure",
-            value: "modules",
-          },
-        ],
-      });
-
-      const layers = await checkbox({
-        message: "Select layers to generate:",
-        choices: [
-          {
-            name: "Transport (gRPC requests)",
-            value: "transport",
-            checked: true,
-          },
-          {
-            name: "Contract (interfaces)",
-            value: "contract",
-            checked: false,
-          },
-          {
-            name: "Repository (implementation)",
-            value: "repository",
-            checked: false,
-          },
-          {
-            name: "Service (business logic)",
-            value: "service",
-            checked: false,
-          },
-        ],
-        validate: (val) => {
-          return val.length > 0 || "Select at least one layer to generate";
-        },
-        theme: {
-          icon: {
-            checked: " ✔",
-            unchecked: " ✖",
-            cursor: "➔",
-          },
-        },
-      });
-
-      inputData = {
-        descriptor,
-        out:
-          outDir === "Enter custom path"
-            ? await input({
-                message: "Enter custom output path:",
-                validate: (val: string) =>
-                  val.length > 0 || "Output path is required",
-              })
-            : outDir,
-        service: serviceName,
-        module: moduleName,
-        structure: structure,
-        layers,
-      };
-
-      logger.info("✅ Input collection complete.\n");
-      logger.debug("Final input data:", inputData);
-    } else if (!opts.service || !opts.descriptor || !opts.module) {
-      console.log("");
-      logger.warn(
-        "Missing required options. Switching to interactive mode...\n"
+      logger.step("LOAD", "Loading service descriptor...");
+      const schema = await loadServiceDescriptor(
+        descriptorPath,
+        finalInput.service
       );
+      logger.debug("Loaded schema:", schema);
+      logger.success(
+        `Found ${schema.methods.length} methods in ${schema.name}`
+      );
+
+      logger.step("RESOLVE", "Resolving output paths...");
+
+      const paths = resolvePaths({
+        outDir: finalInput.out || "src",
+        module: finalInput.module,
+        structure: opts.interactive
+          ? interactiveInputData.structure
+          : (opts.structure as StructureType) || "clean",
+        protoDir: opts.protoDir || "proto",
+      });
+
+      logger.debug("Output paths:", paths);
+
+      const descriptorFile = path.basename(
+        descriptorPath,
+        path.extname(descriptorPath)
+      );
+
+      let ctx: Ctx;
+
+      if (opts.interactive) {
+        ctx = {
+          ...interactiveInputData,
+          schema,
+          paths,
+          descriptor: descriptorFile,
+          mode: "interactive",
+        };
+      } else {
+        ctx = {
+          ...inputData,
+          schema,
+          paths,
+          descriptor: descriptorFile,
+          opts,
+          mode: "non-interactive",
+        };
+      }
+
+      logger.step("GENERATE", `Generating layers: ${ctx.layers.join(", ")}`);
+
+      if (ctx.layers.includes("transport")) {
+        logger.info("  → Generating transport layer...");
+        await generateTransport(ctx);
+        logger.success(`  ✓ ${paths.transport}`);
+      }
+
+      if (ctx.layers.includes("contract")) {
+        logger.info("  → Generating contract layer...");
+        await generateContract(ctx);
+        logger.success(`  ✓ ${paths.contract}`);
+      }
+
+      if (ctx.layers.includes("repository")) {
+        logger.info("  → Generating repository layer...");
+        await generateRepository(ctx);
+        logger.success(`  ✓ ${paths.repository}`);
+      }
+
+      if (ctx.layers.includes("service")) {
+        logger.info("  → Generating service layer...");
+        await generateService(ctx);
+        logger.success(`  ✓ ${paths.service}`);
+      }
+
+      logger.success("\nGeneration complete! 🎉");
+    } catch (error) {
+      logger.error("\nGeneration failed:");
+      logger.error(error instanceof Error ? error.message : String(error));
+
+      if (opts.debug && error instanceof Error && error.stack) {
+        logger.debug("\nStack trace:");
+        logger.debug(error.stack);
+      }
+
+      process.exit(1);
     }
   });
