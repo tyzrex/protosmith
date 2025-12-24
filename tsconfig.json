@@ -3,7 +3,7 @@
     "module": "nodenext",
     "target": "esnext",
     "outDir": "dist",
-    "types": [],
+    "types": ["node"],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
@@ -16,6 +16,10 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   }
 }
