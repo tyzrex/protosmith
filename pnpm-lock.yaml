@@ -17,6 +17,9 @@ importers:
       '@protobuf-ts/runtime':
         specifier: ^2.11.1
         version: 2.11.1
+      '@protobuf-ts/runtime-rpc':
+        specifier: ^2.11.1
+        version: 2.11.1
       commander:
         specifier: ^14.0.2
         version: 14.0.2

@@ -39,6 +39,7 @@ export async function render({ template, out, data }: RenderInput) {
     const formatted = await prettier.format(content, {
       parser: "typescript",
       singleQuote: true,
+      tabWidth: 4,
     });
 
     logger.debug(`Writing to: ${out}`);
