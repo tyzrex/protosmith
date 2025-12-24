@@ -1,10 +1,10 @@
-import { {{schema.name}}Repository } from '@domain/{{module}}/{{module}}.contract';
-import { {{module}}GrpcRequests } from '@transport/gateway/gRPC/requests/{{module}}.requests';
-{{#each schema.methods}}
-import type { {{input}}, {{output}} } from '@transport/gateway/gRPC/stubs/{{../descriptor}}';
+import type { {{schema.name}}Contracts } from '@modules/{{module}}/contracts/{{module}}.contract';
+import { {{module}}GrpcRequests } from '@modules/{{module}}/requests/{{module}}.requests';
+{{#each (groupImportsBySource schema.methods descriptor)}}
+import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from '@transport/gateway/gRPC/stubs/{{source}}';
 {{/each}}
 
-export class {{schema.name}}GrpcRepository implements {{schema.name}}Repository {
+export class {{schema.name}}GrpcRepository implements {{schema.name}}Contracts {
 {{#each schema.methods}}
   async {{name}}(input: {{input}}): Promise<{{output}}> {
     return {{../module}}GrpcRequests.{{name}}(input);

@@ -1,8 +1,8 @@
 import serviceClients from '@transport/gateway/gRPC/clients/client-registery';
 import { interceptorRegistry } from '@transport/interceptor-registry';
 import type { {{schema.name}}Client } from '@transport/gateway/gRPC/stubs/{{descriptor}}.client';
-{{#each schema.methods}}
-import type { {{input}}, {{output}} } from '@transport/gateway/gRPC/stubs/{{../descriptor}}';
+{{#each (groupImportsBySource schema.methods descriptor)}}
+import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from '@transport/gateway/gRPC/stubs/{{source}}';
 {{/each}}
 
 const grpcInterceptor = interceptorRegistry.getInterceptor('grpc');
