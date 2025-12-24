@@ -1,8 +1,8 @@
-{{#each schema.methods}}
-import type { {{input}}, {{output}} } from '@transport/gateway/gRPC/stubs/{{../descriptor}}';
+{{#each (groupImportsBySource schema.methods descriptor)}}
+import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from '@transport/gateway/gRPC/stubs/{{source}}';
 {{/each}}
 
-export interface {{schema.name}}Repository {
+export interface {{schema.name}}Contracts {
 {{#each schema.methods}}
   {{name}}(input: {{input}}): Promise<{{output}}>;
 {{/each}}

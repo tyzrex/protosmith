@@ -1,8 +1,8 @@
 import serviceClients from '@transport/gateway/gRPC/clients/client-registery';
 import { interceptorRegistry } from '@transport/interceptor-registry';
 import type { {{schema.name}}Client } from '@transport/gateway/gRPC/stubs/{{descriptor}}.client';
-{{#each schema.methods}}
-import type { {{input}}, {{output}} } from '@transport/gateway/gRPC/stubs/{{../descriptor}}';
+{{#each (groupImportsBySource schema.methods descriptor)}}
+import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from '@transport/gateway/gRPC/stubs/{{source}}';
 {{/each}}
 
 const grpcInterceptor = interceptorRegistry.getInterceptor('grpc');
@@ -12,15 +12,17 @@ export const {{name}} = (
   request: {{input}},
   retries: number = 1
 ): Promise<{{output}}> =>
-  grpcInterceptor.intercept<{{../schema.name}}Client>({
-    client: serviceClients.{{../module}}ServiceClient,
-    method: (c) => c.{{originalName}}.bind(c),
-    args: request,
-    retries
-  });
+  {
+    return grpcInterceptor.intercept<{{../schema.name}}Client>({
+      client: serviceClients.{{../module}}ServiceClient,
+      method: (client) => client.{{name}}.bind(client),
+      args: request,
+      retries
+    });
+  }
 
 {{/each}}
-export const {{module}}GrpcRequests = {
+export const {{module}}ServiceRequests = {
   {{#each schema.methods}}{{name}},
   {{/each}}
 };
