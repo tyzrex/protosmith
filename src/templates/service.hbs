@@ -1,0 +1,15 @@
+import { {{schema.name}}Repository } from '@domain/{{module}}/{{module}}.contract';
+{{#each schema.methods}}
+import type { {{input}}, {{output}} } from '@transport/gateway/gRPC/stubs/{{../descriptor}}';
+{{/each}}
+
+export class {{schema.name}}Service {
+  constructor(private readonly repo: {{schema.name}}Repository) {}
+
+{{#each schema.methods}}
+  {{name}}(input: {{input}}): Promise<{{output}}> {
+    return this.repo.{{name}}(input);
+  }
+
+{{/each}}
+}

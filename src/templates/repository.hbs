@@ -1,0 +1,14 @@
+import { {{schema.name}}Repository } from '@domain/{{module}}/{{module}}.contract';
+import { {{module}}GrpcRequests } from '@transport/gateway/gRPC/requests/{{module}}.requests';
+{{#each schema.methods}}
+import type { {{input}}, {{output}} } from '@transport/gateway/gRPC/stubs/{{../descriptor}}';
+{{/each}}
+
+export class {{schema.name}}GrpcRepository implements {{schema.name}}Repository {
+{{#each schema.methods}}
+  async {{name}}(input: {{input}}): Promise<{{output}}> {
+    return {{../module}}GrpcRequests.{{name}}(input);
+  }
+
+{{/each}}
+}
