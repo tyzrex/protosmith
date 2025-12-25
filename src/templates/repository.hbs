@@ -1,5 +1,5 @@
 import type { {{schema.name}}Contracts } from '@modules/{{module}}/contracts/{{module}}.contract';
-import { {{module}}GrpcRequests } from '@modules/{{module}}/requests/{{module}}.requests';
+import { {{module}}ServiceRequests } from '@modules/{{module}}/requests/{{module}}.requests';
 {{#each (groupImportsBySource schema.methods descriptor)}}
 import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from '@transport/gateway/gRPC/stubs/{{source}}';
 {{/each}}
@@ -7,7 +7,7 @@ import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } f
 export class {{schema.name}}GrpcRepository implements {{schema.name}}Contracts {
 {{#each schema.methods}}
   async {{name}}(input: {{input}}): Promise<{{output}}> {
-    return {{../module}}GrpcRequests.{{name}}(input);
+    return {{../module}}ServiceRequests.{{name}}(input);
   }
 
 {{/each}}
