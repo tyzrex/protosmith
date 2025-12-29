@@ -1,5 +1,5 @@
-import type { {{schema.name}}Contracts } from '@modules/{{module}}/contracts/{{module}}.contract';
-import { {{module}}ServiceRequests } from '@modules/{{module}}/requests/{{module}}.requests';
+import type { {{schema.name}}Contracts } from '{{importPaths.repositoryToContract}}';
+import { {{module}}ServiceRequests } from '{{importPaths.repositoryToTransport}}';
 {{#each (groupImportsBySource schema.methods descriptor)}}
 import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from '@transport/gateway/gRPC/stubs/{{source}}';
 {{/each}}

@@ -9,6 +9,12 @@ interface BaseCtx {
     repository: string;
     service: string;
   };
+  importPaths: {
+    repositoryToContract: string;
+    repositoryToTransport: string;
+    serviceToContract: string;
+    serviceToRepository: string;
+  };
   descriptor: string;
   layers: string[];
 }

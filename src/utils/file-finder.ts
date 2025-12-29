@@ -8,6 +8,16 @@ export interface FindFilesOptions {
   excludeDirs?: string[];
 }
 
+const IGNORE_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  ".next",
+  ".turbo",
+  ".svelte-kit",
+]);
+
 /**
  * Recursively find files matching a pattern
  */
@@ -75,23 +85,30 @@ export function findServiceDescriptors(
 /**
  * Get list of directories for selection
  */
-export function getDirectories(rootDir: string = process.cwd()): string[] {
-  const dirs = ["./", "./src", "./app", "./lib"];
 
-  try {
-    const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+export function getDirectories(rootDir: string = process.cwd()): string[] {
+  const result: string[] = [];
+
+  function walk(currentDir: string) {
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+
     for (const entry of entries) {
-      if (
-        entry.isDirectory() &&
-        !entry.name.startsWith(".") &&
-        !["node_modules", "dist", "build"].includes(entry.name)
-      ) {
-        dirs.push(`./${entry.name}`);
-      }
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith(".")) continue;
+      if (IGNORE_DIRS.has(entry.name)) continue;
+
+      const fullPath = path.join(currentDir, entry.name);
+      const relativePath = `./${path.relative(rootDir, fullPath)}`;
+
+      result.push(relativePath);
+      walk(fullPath);
     }
-  } catch (error) {
-    // Ignore errors
   }
 
-  return [...new Set(dirs)].sort();
+  // Always include root
+  result.push("./");
+
+  walk(rootDir);
+
+  return result.sort();
 }

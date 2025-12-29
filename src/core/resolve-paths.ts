@@ -17,22 +17,29 @@ export function resolvePaths(input: ResolvePathsInput) {
 
   if (structure === "modules") {
     // modules/[module]/requests, repos, services structure
+    // If base already ends with "modules" or contains "modules/", just append the module name
+    // Otherwise, add the "modules" directory
+    const modulesBase =
+      base.endsWith("/modules") || base.includes("/modules/")
+        ? base
+        : `${base}/modules`;
+
     return {
       transport:
         input.custom?.transport ??
-        `${base}/modules/${input.module}/requests/${input.module}.requests.ts`,
+        `${modulesBase}/${input.module}/requests/${input.module}.requests.ts`,
 
       contract:
         input.custom?.contract ??
-        `${base}/modules/${input.module}/contracts/${input.module}.contract.ts`,
+        `${modulesBase}/${input.module}/contracts/${input.module}.contract.ts`,
 
       repository:
         input.custom?.repository ??
-        `${base}/modules/${input.module}/repos/${input.module}.repo.ts`,
+        `${modulesBase}/${input.module}/repos/${input.module}.repo.ts`,
 
       service:
         input.custom?.service ??
-        `${base}/modules/${input.module}/services/${input.module}.service.ts`,
+        `${modulesBase}/${input.module}/services/${input.module}.service.ts`,
     };
   }
 

@@ -1,4 +1,4 @@
-import { {{schema.name}}Repository } from '@domain/{{module}}/{{module}}.contract';
+import { {{schema.name}}Repository } from '{{importPaths.serviceToContract}}';
 {{#each schema.methods}}
 import type { {{input}}, {{output}} } from '@transport/gateway/gRPC/stubs/{{../descriptor}}';
 {{/each}}

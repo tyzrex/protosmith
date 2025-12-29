@@ -9,6 +9,7 @@ import {
 import { select, input, checkbox } from "@inquirer/prompts";
 import { loadServiceDescriptor } from "../core/load-service.js";
 import { resolvePaths } from "../core/resolve-paths.js";
+import { calculateImportPaths } from "../utils/import-path.js";
 import type {
   Ctx,
   InteractiveInput,
@@ -277,6 +278,10 @@ export const generateCommand = new Command("generate")
 
       logger.debug("Output paths:", paths);
 
+      // Calculate relative import paths
+      const importPaths = calculateImportPaths(paths);
+      logger.debug("Import paths:", importPaths);
+
       const descriptorFile = path.basename(
         descriptorPath,
         path.extname(descriptorPath)
@@ -289,6 +294,7 @@ export const generateCommand = new Command("generate")
           ...interactiveInputData,
           schema,
           paths,
+          importPaths,
           descriptor: descriptorFile,
           mode: "interactive",
         };
@@ -297,6 +303,7 @@ export const generateCommand = new Command("generate")
           ...inputData,
           schema,
           paths,
+          importPaths,
           descriptor: descriptorFile,
           opts,
           mode: "non-interactive",
