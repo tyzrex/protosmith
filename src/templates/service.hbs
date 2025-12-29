@@ -7,8 +7,8 @@ export class {{schema.name}}Service {
   constructor(private readonly repo: {{schema.name}}Repository) {}
 
 {{#each schema.methods}}
-  {{name}}(input: {{input}}): Promise<{{output}}> {
-    return this.repo.{{name}}(input);
+  {{name}}(request: {{input}}): Promise<{{output}}> {
+    return this.repo.{{name}}(request);
   }
 
 {{/each}}

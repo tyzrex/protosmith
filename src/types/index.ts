@@ -8,12 +8,14 @@ interface BaseCtx {
     contract: string;
     repository: string;
     service: string;
+    viewModel: string;
   };
   importPaths: {
     repositoryToContract: string;
     repositoryToTransport: string;
     serviceToContract: string;
     serviceToRepository: string;
+    viewModelToRepository: string;
   };
   descriptor: string;
   layers: string[];

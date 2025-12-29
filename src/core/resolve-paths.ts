@@ -8,6 +8,7 @@ export interface ResolvePathsInput {
     contract: string;
     repository: string;
     service: string;
+    viewModel: string;
   }>;
 }
 
@@ -40,6 +41,10 @@ export function resolvePaths(input: ResolvePathsInput) {
       service:
         input.custom?.service ??
         `${modulesBase}/${input.module}/services/${input.module}.service.ts`,
+
+      viewModel:
+        input.custom?.viewModel ??
+        `${modulesBase}/${input.module}/view-models/${input.module}.view-model.ts`,
     };
   }
 
@@ -60,5 +65,9 @@ export function resolvePaths(input: ResolvePathsInput) {
     service:
       input.custom?.service ??
       `${base}/service/${input.module}/${input.module}.service.ts`,
+
+    viewModel:
+      input.custom?.viewModel ??
+      `${base}/presentation/${input.module}/${input.module}.view-model.ts`,
   };
 }

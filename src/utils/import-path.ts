@@ -30,21 +30,27 @@ export function calculateImportPaths(paths: {
   contract: string;
   repository: string;
   service: string;
+  viewModel: string;
 }) {
   return {
     // From repository to contract
     repositoryToContract: getRelativeImportPath(
       paths.repository,
-      paths.contract
+      paths.contract,
     ),
     // From repository to transport
     repositoryToTransport: getRelativeImportPath(
       paths.repository,
-      paths.transport
+      paths.transport,
     ),
     // From service to contract
     serviceToContract: getRelativeImportPath(paths.service, paths.contract),
     // From service to repository
     serviceToRepository: getRelativeImportPath(paths.service, paths.repository),
+    // From viewModel to repository
+    viewModelToRepository: getRelativeImportPath(
+      paths.viewModel,
+      paths.repository,
+    ),
   };
 }

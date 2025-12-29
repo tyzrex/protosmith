@@ -1,0 +1,39 @@
+import type { UIStatus } from '@/constants/common-definations';
+import { {{schema.name}}GrpcRepository } from '{{importPaths.viewModelToRepository}}';
+{{#each (groupImportsBySource schema.methods descriptor)}}
+import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from '@transport/gateway/gRPC/stubs/{{source}}';
+{{/each}}
+import logger from '@utils/log';
+import { writable, type Writable } from 'svelte/store';
+
+export class {{schema.name}}ViewModel {
+	private repo: {{schema.name}}GrpcRepository;
+	private static _instance: {{schema.name}}ViewModel;
+
+	state: Writable<UIStatus> = writable({ status: 'none', message: undefined });
+
+	constructor(repo: {{schema.name}}GrpcRepository) {
+		this.repo = repo;
+	}
+
+	static getInstance(): {{schema.name}}ViewModel {
+		if (!this._instance) {
+			this._instance = new {{schema.name}}ViewModel(new {{schema.name}}GrpcRepository());
+		}
+		return this._instance;
+	}
+
+{{#each schema.methods}}
+	async {{name}}(request: {{input}}): Promise<{{output}}> {
+		this.state.set({ status: 'loading', message: 'Processing {{name}}...' });
+		try {
+			const response: {{output}} = await this.repo.{{name}}(request);
+			this.state.set({ status: 'success', message: '{{name}} completed successfully.' });
+		} catch (error) {
+			this.state.set({ status: 'error', message: 'Failed to process {{name}}.' });
+			logger.error('Error in {{name}}:', error);
+		}
+	}
+
+{{/each}}
+}

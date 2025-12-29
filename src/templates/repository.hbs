@@ -6,8 +6,8 @@ import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } f
 
 export class {{schema.name}}GrpcRepository implements {{schema.name}}Contracts {
 {{#each schema.methods}}
-  async {{name}}(input: {{input}}): Promise<{{output}}> {
-    return {{../module}}ServiceRequests.{{name}}(input);
+  async {{name}}(request: {{input}}): Promise<{{output}}> {
+    return {{../module}}ServiceRequests.{{name}}(request);
   }
 
 {{/each}}
