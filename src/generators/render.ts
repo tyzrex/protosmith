@@ -49,6 +49,10 @@ Handlebars.registerHelper("camel", function (str: string) {
   return camel(str);
 });
 
+Handlebars.registerHelper("includes", function (array: string[], item: string) {
+  return array.includes(item);
+});
+
 interface RenderInput {
   template: string;
   out: string;
