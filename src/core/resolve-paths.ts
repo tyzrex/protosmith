@@ -1,19 +1,51 @@
 export interface ResolvePathsInput {
   outDir: string;
   module: string;
-  structure?: "clean" | "modules";
+  structure?: "clean" | "modules" | "flat";
   protoDir?: string;
   custom?: Partial<{
     transport: string;
     contract: string;
     repository: string;
     service: string;
+    viewModel: string;
   }>;
 }
 
 export function resolvePaths(input: ResolvePathsInput) {
   const base = input.outDir.replace(/\/$/, "");
   const structure = input.structure || "clean";
+
+  if (structure === "flat") {
+    // Flat structure: all files in same directory, no subdirectories
+    // modules/[module]/customer.requests.ts, customer.contract.ts, etc.
+    const modulesBase =
+      base.endsWith("/modules") || base.includes("/modules/")
+        ? base
+        : `${base}/modules`;
+
+    return {
+      transport:
+        input.custom?.transport ??
+        `${modulesBase}/${input.module}/${input.module}.requests.ts`,
+
+      contract:
+        input.custom?.contract ??
+        `${modulesBase}/${input.module}/${input.module}.contract.ts`,
+
+      repository:
+        input.custom?.repository ??
+        `${modulesBase}/${input.module}/${input.module}.repo.ts`,
+
+      service:
+        input.custom?.service ??
+        `${modulesBase}/${input.module}/${input.module}.service.ts`,
+
+      viewModel:
+        input.custom?.viewModel ??
+        `${modulesBase}/${input.module}/${input.module}.view-model.ts`,
+    };
+  }
 
   if (structure === "modules") {
     // modules/[module]/requests, repos, services structure
@@ -40,6 +72,10 @@ export function resolvePaths(input: ResolvePathsInput) {
       service:
         input.custom?.service ??
         `${modulesBase}/${input.module}/services/${input.module}.service.ts`,
+
+      viewModel:
+        input.custom?.viewModel ??
+        `${modulesBase}/${input.module}/view-models/${input.module}.view-model.ts`,
     };
   }
 
@@ -60,5 +96,9 @@ export function resolvePaths(input: ResolvePathsInput) {
     service:
       input.custom?.service ??
       `${base}/service/${input.module}/${input.module}.service.ts`,
+
+    viewModel:
+      input.custom?.viewModel ??
+      `${base}/presentation/${input.module}/${input.module}.view-model.ts`,
   };
 }

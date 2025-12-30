@@ -5,12 +5,14 @@ A powerful CLI tool for generating TypeScript clean architecture layers from pro
 ## ✨ Features
 
 - 🔄 **Automatic Code Generation** - Generates TypeScript code from compiled protobuf-ts services
-- 🏗️ **Flexible Architecture** - Supports both clean architecture and modular project structures
+- 🏗️ **Flexible Architecture** - Supports clean, modular, and flat project structures
 - 📦 **Smart Import Resolution** - Automatically handles cross-proto imports (e.g., common.proto, shared types)
-- 🎯 **Multiple Layers** - Generates contracts, repositories, services, and transport layers
+- 🎯 **Multiple Layers** - Generates contracts, repositories, services, transport, and view model layers
 - 🔍 **Type Source Tracking** - Intelligently maps types to their original source files
 - 💬 **Interactive Mode** - User-friendly prompts for easy configuration
 - 🎨 **Formatted Output** - Generates clean, formatted code with Prettier
+- 🎭 **Svelte 5 Support** - Generates view models with Svelte 5 compatible stores
+- 📁 **Flat Structure** - All files in one directory, no nested subdirectories
 
 ## 📋 Prerequisites
 
@@ -41,16 +43,19 @@ pnpm build
 You can run Protosmith locally using one of these methods:
 
 **Method 1: Using tsx (Development)**
+
 ```bash
 tsx cli.ts generate --interactive
 ```
 
 **Method 2: Using pnpm script**
+
 ```bash
 pnpm protosmith generate --interactive
 ```
 
 **Method 3: Create a symlink (Recommended for frequent use)**
+
 ```bash
 # From the protosmith directory
 npm link
@@ -60,11 +65,14 @@ protosmith generate --interactive
 ```
 
 # From the protosmith directory
+
 tsx cli.ts generate --interactive
 
 # Or if you've run npm link
+
 protosmith generate --interactive
-```
+
+````
 
 The CLI will guide you through:
 - Selecting your service descriptor file
@@ -92,9 +100,10 @@ tsx cli.ts generate \
 
 ```bash
 protosmith generate --interactive
-```
+````
 
 The CLI will guide you through:
+
 - Selecting your service descriptor file
 - Choosing output directory
 - Configuring service and module names
@@ -117,6 +126,7 @@ protosmith generate \
 ### Example 1: Basic Service Generation
 
 **Proto Definition:**
+
 ```proto
 // user.proto
 syntax = "proto3";
@@ -144,6 +154,7 @@ message User {
 ```
 
 **Generate Command:**
+
 ```bash
 protosmith generate \
   --service UserService \
@@ -153,45 +164,48 @@ protosmith generate \
 ```
 
 **Generated Contract (contract):**
+
 ```typescript
 import type {
-    CreateUserRequest,
-    CreateUserResponse,
-    GetUserRequest,
-    GetUserResponse,
-} from '@transport/gateway/gRPC/stubs/user-service';
+  CreateUserRequest,
+  CreateUserResponse,
+  GetUserRequest,
+  GetUserResponse,
+} from "@transport/gateway/gRPC/stubs/user-service";
 
 export interface UserServiceRepository {
-    getUser(input: GetUserRequest): Promise<GetUserResponse>;
-    createUser(input: CreateUserRequest): Promise<CreateUserResponse>;
+  getUser(input: GetUserRequest): Promise<GetUserResponse>;
+  createUser(input: CreateUserRequest): Promise<CreateUserResponse>;
 }
 ```
 
 **Generated Repository:**
+
 ```typescript
-import { UserServiceRepository } from '@domain/user/user.contract';
-import { userGrpcRequests } from '@transport/gateway/gRPC/requests/user.requests';
+import { UserServiceRepository } from "@domain/user/user.contract";
+import { userGrpcRequests } from "@transport/gateway/gRPC/requests/user.requests";
 import type {
-    CreateUserRequest,
-    CreateUserResponse,
-    GetUserRequest,
-    GetUserResponse,
-} from '@transport/gateway/gRPC/stubs/user-service';
+  CreateUserRequest,
+  CreateUserResponse,
+  GetUserRequest,
+  GetUserResponse,
+} from "@transport/gateway/gRPC/stubs/user-service";
 
 export class UserServiceGrpcRepository implements UserServiceRepository {
-    async getUser(input: GetUserRequest): Promise<GetUserResponse> {
-        return userGrpcRequests.getUser(input);
-    }
+  async getUser(input: GetUserRequest): Promise<GetUserResponse> {
+    return userGrpcRequests.getUser(input);
+  }
 
-    async createUser(input: CreateUserRequest): Promise<CreateUserResponse> {
-        return userGrpcRequests.createUser(input);
-    }
+  async createUser(input: CreateUserRequest): Promise<CreateUserResponse> {
+    return userGrpcRequests.createUser(input);
+  }
 }
 ```
 
 ### Example 2: Cross-Proto Imports
 
 **Proto Definitions:**
+
 ```proto
 // common.proto
 syntax = "proto3";
@@ -229,6 +243,7 @@ message GetProfileRequest {
 ```
 
 **Generated Code with Smart Imports:**
+
 ```typescript
 // ✅ Protosmith correctly identifies that Profile comes from common.proto
 tsx cli.tse { GetProfileRequest } from '@transport/gateway/gRPC/stubs/user-service';
@@ -253,6 +268,235 @@ protosmith generate \
 ```
 
 **Output Structure:**
+
+```
+src/
+└── modules/
+    └── profile/
+        ├── requests/
+        │   └── profile.requests.ts      # Transport layer
+        ├── contracts/
+        │   └── profile.contract.ts      # Contract interfaces
+        └── repos/
+            └── profile.repo.ts          # Repository implementation
+```
+
+### Example 4: Flat Structure
+
+Generate all layers in the same directory:
+
+```bash
+protosmith generate \
+  --service CustomerService \
+  --descriptor ./stubs/customer-service.ts \
+  --module customer \
+  --structure flat \
+  --layers transport,contract,repository,service
+```
+
+**Output Structure:**
+
+```
+src/
+└── modules/
+    └── customer/
+        ├── customer.requests.ts         # Transport layer
+        ├── customer.contract.ts         # Contract interfaces
+        ├── customer.repo.ts            # Repository implementation
+        └── customer.service.ts        # Service layer
+```
+
+**Output Structure:**
+
+```
+src/
+└── modules/
+    └── customer/
+        └── customer.service.ts          # All layers in one file
+```
+
+**Generated File Structure:**
+
+```typescript
+// customer.service.ts - Contains all layers:
+
+// ==================== CONTRACT ====================
+export interface CustomerServiceContracts { ... }
+
+// ==================== TRANSPORT ====================
+export const customerServiceRequests = { ... }
+
+// ==================== REPOSITORY ====================
+export class CustomerServiceGrpcRepository implements CustomerServiceContracts { ... }
+
+// ==================== SERVICE ====================
+export class CustomerService { ... }
+```
+
+### Example 5: ViewModel Generation (Svelte 5)
+
+Generate view model for UI state management:
+
+```bash
+protosmith generate \
+  --service PaymentService \
+  --descriptor ./stubs/payment-service.ts \
+  --module payment \
+  --layers viewModel
+```
+
+**Generated ViewModel:**
+
+```typescript
+import type { UIStatus } from "@/constants/common-definations";
+import { PaymentServiceGrpcRepository } from "./payment.repo";
+import { writable, type Writable } from "svelte/store";
+
+export class PaymentServiceViewModel {
+  private repo: PaymentServiceGrpcRepository;
+  private static _instance: PaymentServiceViewModel;
+
+  state: Writable<UIStatus> = writable({ status: "none", message: undefined });
+
+  static getInstance(): PaymentServiceViewModel {
+    if (!this._instance) {
+      this._instance = new PaymentServiceViewModel(
+        new PaymentServiceGrpcRepository(),
+      );
+    }
+    return this._instance;
+  }
+
+  async initiatePayment(
+    request: InitiatePaymentRequest,
+  ): Promise<InitiatePaymentResponse> {
+    this.state.set({
+      status: "loading",
+      message: "Processing initiatePayment...",
+    });
+    try {
+      const response: InitiatePaymentResponse =
+        await this.repo.initiatePayment(request);
+      this.state.set({
+        status: "success",
+        message: "initiatePayment completed successfully.",
+      });
+      return response;
+    } catch (error) {
+      this.state.set({
+        status: "error",
+        message: "Failed to process initiatePayment.",
+      });
+      logger.error("Error in initiatePayment:", error);
+      throw error;
+    }
+  }
+
+  // ... more methods
+}
+```
+
+**Usage in Svelte 5 Component:**
+
+```svelte
+<script>
+  import { PaymentServiceViewModel } from '@/modules/payment/payment.view-model';
+
+  const viewModel = PaymentServiceViewModel.getInstance();
+
+  async function handlePayment() {
+    try {
+      const response = await viewModel.initiatePayment({ amount: 100, currency: 'USD' });
+      console.log('Payment successful!', response);
+    } catch (error) {
+      console.error('Payment failed:', error);
+    }
+  }
+</script>
+
+<button on:click={handlePayment}>Make Payment</button>
+```
+
+Note: Import paths vary by structure:
+
+- **Clean**: `@/presentation/payment/payment.view-model.ts`
+- **Modules**: `@/modules/payment/view-models/payment.view-model.ts`
+- **Flat**: `@/modules/payment/payment.view-model.ts`
+
+**Generated ViewModel:**
+
+```typescript
+import type { UIStatus } from "@/constants/common-definations";
+import { PaymentServiceGrpcRepository } from "../repos/payment.repo";
+import { writable, type Writable } from "svelte/store";
+
+export class PaymentServiceViewModel {
+  private repo: PaymentServiceGrpcRepository;
+  private static _instance: PaymentServiceViewModel;
+
+  state: Writable<UIStatus> = writable({ status: "none", message: undefined });
+
+  static getInstance(): PaymentServiceViewModel {
+    if (!this._instance) {
+      this._instance = new PaymentServiceViewModel(
+        new PaymentServiceGrpcRepository(),
+      );
+    }
+    return this._instance;
+  }
+
+  async initiatePayment(
+    request: InitiatePaymentRequest,
+  ): Promise<InitiatePaymentResponse> {
+    this.state.set({
+      status: "loading",
+      message: "Processing initiatePayment...",
+    });
+    try {
+      const response: InitiatePaymentResponse =
+        await this.repo.initiatePayment(request);
+      this.state.set({
+        status: "success",
+        message: "initiatePayment completed successfully.",
+      });
+      return response;
+    } catch (error) {
+      this.state.set({
+        status: "error",
+        message: "Failed to process initiatePayment.",
+      });
+      logger.error("Error in initiatePayment:", error);
+      throw error;
+    }
+  }
+
+  // ... more methods
+}
+```
+
+**Usage in Svelte 5 Component:**
+
+```svelte
+<script>
+  import { PaymentServiceViewModel } from '@/modules/payment/view-models/payment.view-model';
+
+  const viewModel = PaymentServiceViewModel.getInstance();
+
+  async function handlePayment() {
+    try {
+      const response = await viewModel.initiatePayment({ amount: 100, currency: 'USD' });
+      console.log('Payment successful!', response);
+    } catch (error) {
+      console.error('Payment failed:', error);
+    }
+  }
+</script>
+
+<button on:click={handlePayment}>Make Payment</button>
+```
+
+**Output Structure:**
+
 ```
 src/
 └── modules/
@@ -278,6 +522,7 @@ protosmith generate \
 ```
 
 **Output Structure:**
+
 ```
 src/
 ├── transport/
@@ -300,17 +545,17 @@ src/
 
 ### `generate` Command
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--interactive` | Enable interactive mode with prompts | `false` |
-| `--service <name>` | Service name from proto file | Required |
-| `--descriptor <path>` | Path to compiled proto TypeScript file | Required |
-| `--module <name>` | Module name for generated files | Required |
-| `--out <path>` | Output root directory | `src` |
-| `--structure <type>` | Architecture structure: `clean` or `modules` | `clean` |
-| `--layers <layers>` | Comma-separated layers to generate | All layers |
-| `--verbose` | Enable verbose logging | `false` |
-| `--debug` | Enable debug logging | `false` |
+| Option                | Description                                           | Default    |
+| --------------------- | ----------------------------------------------------- | ---------- |
+| `--interactive`       | Enable interactive mode with prompts                  | `false`    |
+| `--service <name>`    | Service name from proto file                          | Required   |
+| `--descriptor <path>` | Path to compiled proto TypeScript file                | Required   |
+| `--module <name>`     | Module name for generated files                       | Required   |
+| `--out <path>`        | Output root directory                                 | `src`      |
+| `--structure <type>`  | Architecture structure: `clean`, `modules`, or `flat` | `clean`    |
+| `--layers <layers>`   | Comma-separated layers to generate                    | All layers |
+| `--verbose`           | Enable verbose logging                                | `false`    |
+| `--debug`             | Enable debug logging                                  | `false`    |
 
 ### Available Layers
 
@@ -318,6 +563,7 @@ src/
 - **contract** - TypeScript interfaces defining repository contracts
 - **repository** - Repository implementations connecting to gRPC
 - **service** - Business logic service layer
+- **viewModel** - Svelte 5 view model with state management
 
 ## 🎯 Architecture Patterns
 
@@ -343,6 +589,29 @@ src/
         └── services/      # Services
 ```
 
+### Flat Architecture
+
+All layers in same directory, no subdirectories:
+
+```
+src/
+└── modules/
+    └── [module-name]/
+        ├── [module-name].requests.ts
+        ├── [module-name].contract.ts
+        ├── [module-name].repo.ts
+        ├── [module-name].service.ts
+        └── [module-name].view-model.ts
+```
+
+### Architecture Comparison
+
+| Structure | Directory Depth | File Organization | Best For                                       |
+| --------- | --------------- | ----------------- | ---------------------------------------------- |
+| `clean`   | Deep            | Layer-based       | Large enterprise apps with strict architecture |
+| `modules` | Medium          | Module-based      | Medium projects with clear module boundaries   |
+| `flat`    | Shallow         | Flat files        | Prototyping, microservices, minimal projects   |
+
 ## 🔍 How It Works
 
 ### Smart Import Resolution
@@ -355,7 +624,7 @@ Protosmith uses a sophisticated type source mapping system:
 
 **Example:**
 
-```typescript
+````typescript
 // EWorking on Protosmith
 
 ```bash
@@ -369,7 +638,7 @@ tsx cli.ts generate --interactive
 
 # Or with debug logging
 tsx cli.ts generate --interactive --debug
-```
+````
 
 ### Testing with Sample Project
 
@@ -455,4 +724,3 @@ ISC
 - [grpc-js](https://github.com/grpc/grpc-node) - gRPC for Node.js
 
 ---
-

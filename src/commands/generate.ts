@@ -21,6 +21,7 @@ import { generateTransport } from "../generators/transport-generator.js";
 import { generateContract } from "../generators/contract-generator.js";
 import { generateRepository } from "../generators/repository-generator.js";
 import { generateService } from "../generators/service-generator.js";
+import { generateViewModel } from "../generators/view-model-generator.js";
 
 export const generateCommand = new Command("generate")
   .option("--interactive", "interactive mode")
@@ -29,13 +30,13 @@ export const generateCommand = new Command("generate")
   .option("--module <name>", "module name for output files")
   .option(
     "--proto-dir <path>",
-    "directory containing proto files (for auto-detection)"
+    "directory containing proto files (for auto-detection)",
   )
   .option("--out <path>", "output root directory", "src")
   .option(
     "--structure <type>",
     "output structure: 'clean' (default) or 'modules'",
-    "clean"
+    "clean",
   )
   .option("--layers <layers>", "comma separated layers to generate")
   .option("--verbose", "enable verbose logging")
@@ -78,10 +79,10 @@ export const generateCommand = new Command("generate")
 
         if (serviceFiles.length === 0) {
           logger.error(
-            "No service descriptor files found (files ending with -service.ts)"
+            "No service descriptor files found (files ending with -service.ts)",
           );
           logger.info(
-            "Make sure you have compiled your proto files first with protobuf-ts"
+            "Make sure you have compiled your proto files first with protobuf-ts",
           );
           process.exit(1);
         }
@@ -112,7 +113,7 @@ export const generateCommand = new Command("generate")
             val.length > 0 || "Module name is required",
         });
 
-        const structure: "clean" | "modules" = await select({
+        const structure: "clean" | "modules" | "flat" = await select({
           message: "Select output structure:",
           choices: [
             {
@@ -124,6 +125,11 @@ export const generateCommand = new Command("generate")
               name: "modules",
               description: "Modules/[module]/... structure",
               value: "modules",
+            },
+            {
+              name: "flat",
+              description: "All layers in a single file",
+              value: "flat",
             },
           ],
         });
@@ -149,6 +155,11 @@ export const generateCommand = new Command("generate")
             {
               name: "Service (business logic)",
               value: "service",
+              checked: false,
+            },
+            {
+              name: "ViewModel (Svelte 5 presentation)",
+              value: "viewModel",
               checked: false,
             },
           ],
@@ -185,7 +196,7 @@ export const generateCommand = new Command("generate")
       } else if (!opts.service || !opts.descriptor || !opts.module) {
         console.log("");
         logger.warn(
-          "Missing required options. Switching to interactive mode...\n"
+          "Missing required options. Switching to interactive mode...\n",
         );
 
         // Find all service descriptor files
@@ -196,10 +207,10 @@ export const generateCommand = new Command("generate")
 
         if (serviceFiles.length === 0) {
           logger.error(
-            "No service descriptor files found (files ending with -service.ts)"
+            "No service descriptor files found (files ending with -service.ts)",
           );
           logger.info(
-            "Make sure you have compiled your proto files first with protobuf-ts"
+            "Make sure you have compiled your proto files first with protobuf-ts",
           );
           process.exit(1);
         }
@@ -210,7 +221,7 @@ export const generateCommand = new Command("generate")
           ...opts,
           layers: opts.layers
             ? opts.layers.split(",").map((l: string) => l.trim())
-            : ["transport", "contract", "repository", "service"],
+            : ["transport", "contract", "repository", "service", "viewModel"],
         };
       }
 
@@ -218,19 +229,19 @@ export const generateCommand = new Command("generate")
 
       if (!finalInput.service) {
         logger.error(
-          "Service name is required. Use --service <name> or --interactive"
+          "Service name is required. Use --service <name> or --interactive",
         );
         process.exit(1);
       }
       if (!finalInput.descriptor) {
         logger.error(
-          "Descriptor path is required. Use --descriptor <path> or --interactive"
+          "Descriptor path is required. Use --descriptor <path> or --interactive",
         );
         process.exit(1);
       }
       if (!finalInput.module) {
         logger.error(
-          "Module name is required. Use --module <name> or --interactive"
+          "Module name is required. Use --module <name> or --interactive",
         );
         process.exit(1);
       }
@@ -247,10 +258,10 @@ export const generateCommand = new Command("generate")
       if (!fs.existsSync(descriptorPath)) {
         logger.error(`Descriptor file not found: ${descriptorPath}`);
         logger.info(
-          "Make sure to compile your .proto files first using protobuf-ts"
+          "Make sure to compile your .proto files first using protobuf-ts",
         );
         logger.info(
-          "Example: npx protoc --ts_out . --proto_path . proto/*.proto"
+          "Example: npx protoc --ts_out . --proto_path . proto/*.proto",
         );
         process.exit(1);
       }
@@ -258,11 +269,11 @@ export const generateCommand = new Command("generate")
       logger.step("LOAD", "Loading service descriptor...");
       const schema = await loadServiceDescriptor(
         descriptorPath,
-        finalInput.service
+        finalInput.service,
       );
       logger.debug("Loaded schema:", schema);
       logger.success(
-        `Found ${schema.methods.length} methods in ${schema.name}`
+        `Found ${schema.methods.length} methods in ${schema.name}`,
       );
 
       logger.step("RESOLVE", "Resolving output paths...");
@@ -284,7 +295,7 @@ export const generateCommand = new Command("generate")
 
       const descriptorFile = path.basename(
         descriptorPath,
-        path.extname(descriptorPath)
+        path.extname(descriptorPath),
       );
 
       let ctx: Ctx;
@@ -299,6 +310,7 @@ export const generateCommand = new Command("generate")
           mode: "interactive",
         };
       } else {
+        const structureValue = (opts.structure as StructureType) || "clean";
         ctx = {
           ...inputData,
           schema,
@@ -306,11 +318,21 @@ export const generateCommand = new Command("generate")
           importPaths,
           descriptor: descriptorFile,
           opts,
+          structure: structureValue,
           mode: "non-interactive",
         };
       }
 
-      logger.step("GENERATE", `Generating layers: ${ctx.layers.join(", ")}`);
+      const isFlat = ctx.structure === "flat";
+
+      if (isFlat) {
+        logger.step(
+          "GENERATE",
+          `Generating flat structure for: ${ctx.layers.join(", ")}`,
+        );
+      } else {
+        logger.step("GENERATE", `Generating layers: ${ctx.layers.join(", ")}`);
+      }
 
       if (ctx.layers.includes("transport")) {
         logger.info("  → Generating transport layer...");
@@ -334,6 +356,12 @@ export const generateCommand = new Command("generate")
         logger.info("  → Generating service layer...");
         await generateService(ctx);
         logger.success(`  ✓ ${paths.service}`);
+      }
+
+      if (ctx.layers.includes("viewModel")) {
+        logger.info("  → Generating view model layer...");
+        await generateViewModel(ctx);
+        logger.success(`  ✓ ${paths.viewModel}`);
       }
 
       logger.success("\nGeneration complete! 🎉");

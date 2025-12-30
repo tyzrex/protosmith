@@ -4,6 +4,6 @@ import type { {{#each types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } f
 
 export interface {{schema.name}}Contracts {
 {{#each schema.methods}}
-  {{name}}(input: {{input}}): Promise<{{output}}>;
+  {{name}}(request: {{input}}): Promise<{{output}}>;
 {{/each}}
 }

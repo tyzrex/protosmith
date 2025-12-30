@@ -5,6 +5,7 @@ import Handlebars from "handlebars";
 import prettier from "prettier";
 import { writeFile } from "../utils/write.js";
 import { logger } from "../utils/logger.js";
+import { camel } from "../utils/naming.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,8 +42,16 @@ Handlebars.registerHelper(
     });
 
     return result;
-  }
+  },
 );
+
+Handlebars.registerHelper("camel", function (str: string) {
+  return camel(str);
+});
+
+Handlebars.registerHelper("includes", function (array: string[], item: string) {
+  return array.includes(item);
+});
 
 interface RenderInput {
   template: string;
@@ -56,7 +65,7 @@ export async function render({ template, out, data }: RenderInput) {
       __dirname,
       "..",
       "templates",
-      `${template}.hbs`
+      `${template}.hbs`,
     );
 
     logger.debug(`Reading template: ${templatePath}`);
