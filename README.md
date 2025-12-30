@@ -5,6 +5,9 @@ A powerful CLI tool for generating TypeScript clean architecture layers from pro
 ## ✨ Features
 
 - 🔄 **Automatic Code Generation** - Generates TypeScript code from compiled protobuf-ts services
+- 🔨 **Auto-Compile Proto Files** - Compile proto files directly without manual protoc commands
+- 🎯 **Auto-Detect Services** - Automatically finds and selects generated service descriptor files
+- 📝 **Auto-Extract Names** - Service names automatically extracted from compiled TypeScript files
 - 🏗️ **Flexible Architecture** - Supports clean, modular, and flat project structures
 - 📦 **Smart Import Resolution** - Automatically handles cross-proto imports (e.g., common.proto, shared types)
 - 🎯 **Multiple Layers** - Generates contracts, repositories, services, transport, and view model layers
@@ -16,9 +19,27 @@ A powerful CLI tool for generating TypeScript clean architecture layers from pro
 
 ## 📋 Prerequisites
 
-- Node.js >= 18
+- Node.js >= 20
 - TypeScript >= 5.0
 - Compiled protobuf files using [protobuf-ts](https://github.com/timostamm/protobuf-ts)
+- `protoc` compiler installed (for proto compilation)
+
+### Installing protoc
+
+**macOS:**
+
+```bash
+brew install protobuf
+```
+
+**Ubuntu/Debian:**
+
+```bash
+sudo apt-get install protobuf-compiler
+```
+
+**Windows:**
+Download from [protobuf releases](https://github.com/protocolbuffers/protobuf/releases)
 
 ## 📦 Installation & Setup
 
@@ -38,6 +59,146 @@ pnpm install
 pnpm build
 ```
 
+## 🚀 Quick Start
+
+### Option 1: Auto-compile Proto Files (Recommended)
+
+Generate code directly from proto files without manual compilation:
+
+```bash
+protosmith generate \
+  --service CustomerService \
+  --proto-dir proto \
+  --module customer \
+  --compile-proto \
+  --structure clean
+```
+
+This command will:
+
+1. Automatically compile all `.proto` files in the `proto` directory to TypeScript
+2. Save the compiled stubs in the `stubs` directory (default)
+3. Generate the service layers from the compiled stubs
+
+### Option 2: Compile Then Generate
+
+Compile proto files first, then generate:
+
+```bash
+# Step 1: Compile proto files
+protosmith compile \
+  --proto-dir proto \
+  --out stubs
+
+# Step 2: Generate layers
+protosmith generate \
+  --service CustomerService \
+  --descriptor stubs/customer-service.ts \
+  --module customer
+```
+
+### Option 3: Interactive Mode
+
+For a guided experience, use interactive mode:
+
+```bash
+protosmith generate --interactive
+```
+
+The interactive prompts will guide you through:
+
+1. **Choose Source** - Select between:
+   - **From Proto files (auto-compile)** - Automatically compiles proto files to TypeScript, then generates layers
+   - **From Compiled TypeScript files** - Uses already compiled proto stubs
+
+2. **If using Proto files:**
+   - Select proto directory
+   - **Select specific proto files** to compile (you can select multiple files from directory)
+   - Choose output directory for compiled stubs (from existing directories or enter custom path)
+   - **Auto-detect** generated service descriptor files
+   - **Auto-extract** service name from compiled files (or select if multiple services)
+
+3. **If using Compiled files:**
+   - Select from available service descriptors
+
+4. **Configuration:**
+   - Choose output directory
+   - Enter module name
+   - Select architecture structure (clean/modules/flat)
+   - Choose which layers to generate
+
+**Example Interactive Session:**
+
+```
+How would you like to generate code?
+❯ From Proto files (auto-compile)
+  From Compiled TypeScript files
+
+Select proto directory:
+❯ ./proto
+  ./api/proto
+
+Select proto files to compile:
+✔ customer.proto
+✔ common.proto
+✖ legacy.proto
+
+Output directory for compiled stubs:
+❯ ./stubs
+  ./compiled-proto
+  ./generated
+  ./src/generated
+  Enter custom path
+
+[...compiling proto files...]
+
+✓ Compiled 2 proto file(s) to: ./stubs
+✓ Found 1 service descriptor(s)
+✓ Auto-selected descriptor: customer-service.ts
+✓ Auto-detected service name: CustomerService
+
+Select output directory:
+[...continue with normal flow...]
+```
+
+**When Multiple Services Are Found:**
+
+If compilation generates multiple service descriptor files, you'll be prompted to select one:
+
+```
+✓ Found 2 service descriptor(s)
+
+Select service descriptor:
+❯ customer-service.ts
+  user-service.ts
+```
+
+Then the service name is automatically extracted from the selected file.
+
+Select output directory:
+❯ ./src
+./lib
+Enter custom path
+
+Module name (e.g., customer):
+❯ customer
+
+Select output structure:
+❯ clean
+modules
+flat
+
+Select layers to generate:
+✔ Transport (gRPC requests)
+✖ Contract (interfaces)
+✖ Repository (implementation)
+✖ Service (business logic)
+✖ ViewModel (Svelte 5 presentation)
+
+````
+
+**Note:** Interactive mode automatically detects available proto directories and compiled stub files. If no compiled stubs are found, it recommends using the auto-compile option.
+
 ### Running Locally
 
 You can run Protosmith locally using one of these methods:
@@ -46,7 +207,7 @@ You can run Protosmith locally using one of these methods:
 
 ```bash
 tsx cli.ts generate --interactive
-```
+````
 
 **Method 2: Using pnpm script**
 
@@ -123,7 +284,64 @@ protosmith generate \
 
 ## 📖 Usage Examples
 
+### Example 0: Auto-Compile Proto Files
+
+**Proto Directory Structure:**
+
+```
+proto/
+├── customer.proto
+├── common.proto
+└── user.proto
+```
+
+**One-Command Generation:**
+
+```bash
+protosmith generate \
+  --service CustomerService \
+  --proto-dir proto \
+  --module customer \
+  --compile-proto \
+  --layers transport,contract,repository,service \
+  --verbose
+```
+
+This will:
+
+- Find all `.proto` files in `proto/`
+- Compile them to TypeScript in `stubs/`
+- Auto-detect the compiled `customer-service.ts` descriptor
+- Generate all requested layers
+
+**Custom Stub Directory:**
+
+```bash
+protosmith generate \
+  --service CustomerService \
+  --proto-dir proto \
+  --stubs-dir compiled-proto \
+  --module customer \
+  --compile-proto
+```
+
 ### Example 1: Basic Service Generation
+
+**Compile Only:**
+
+```bash
+protosmith compile --proto-dir proto --out stubs
+```
+
+**Compile with Custom Options:**
+
+```bash
+protosmith compile \
+  --proto-dir proto \
+  --out compiled-stubs \
+  --no-optimize-code-size \
+  --verbose
+```
 
 **Proto Definition:**
 
@@ -142,7 +360,7 @@ message GetUserRequest {
   string user_id = 1;
 }
 
-tsx cli.tstUserResponse {
+message GetUserResponse {
   User user = 1;
 }
 
@@ -541,7 +759,75 @@ src/
         └── customer.service.ts
 ```
 
+## 🔨 Auto-Compiling Proto Files
+
+Protosmith now supports automatic proto file compilation! You can skip the manual protoc step and let Protosmith handle everything.
+
+### How It Works
+
+1. Place your `.proto` files in a directory (e.g., `proto/`)
+2. Run `protosmith generate` with the `--compile-proto` flag
+3. Protosmith will:
+   - Find all `.proto` files in the specified directory
+   - Compile them to TypeScript using protobuf-ts
+   - Save the compiled stubs in the specified output directory (default: `stubs/`)
+   - **Auto-detect** generated service descriptor files
+   - **Auto-select** the service descriptor (or prompt to select if multiple found)
+   - **Auto-extract** service name from the compiled files
+   - Generate your layers using the auto-detected information
+
+### Smart Auto-Selection
+
+- **Single Service**: Automatically selected without prompting
+- **Multiple Services**: Shows list for you to choose from
+- **Service Name**: Automatically extracted from descriptor file name
+  - `customer-service.ts` → `CustomerService`
+  - `exposed-customer-service.ts` → `CustomerService`
+  - `user-service.ts` → `UserService`
+
+### Compile-Only Mode
+
+If you only want to compile proto files without generating layers:
+
+```bash
+protosmith compile --proto-dir proto --out stubs
+```
+
+### Auto-Compile and Generate
+
+Do it all in one command:
+
+```bash
+protosmith generate \
+  --service CustomerService \
+  --proto-dir proto \
+  --module customer \
+  --compile-proto
+```
+
+### Advanced Compile Options
+
+```bash
+protosmith compile \
+  --proto-dir proto \
+  --out compiled-stubs \
+  --no-optimize-code-size \
+  --no-long-type-number \
+  --verbose
+```
+
 ## 🔧 CLI Options
+
+### `compile` Command
+
+| Option                    | Description                           | Default |
+| ------------------------- | ------------------------------------- | ------- |
+| `--proto-dir <path>`      | Directory containing proto files      | `proto` |
+| `--out <path>`            | Output directory for compiled files   | `stubs` |
+| `--no-optimize-code-size` | Disable code size optimization        | `true`  |
+| `--no-long-type-number`   | Disable long type number optimization | `true`  |
+| `--verbose`               | Enable verbose logging                | `false` |
+| `--debug`                 | Enable debug logging                  | `false` |
 
 ### `generate` Command
 
@@ -551,9 +837,12 @@ src/
 | `--service <name>`    | Service name from proto file                          | Required   |
 | `--descriptor <path>` | Path to compiled proto TypeScript file                | Required   |
 | `--module <name>`     | Module name for generated files                       | Required   |
+| `--proto-dir <path>`  | Directory containing proto files (for auto-detection) | -          |
 | `--out <path>`        | Output root directory                                 | `src`      |
 | `--structure <type>`  | Architecture structure: `clean`, `modules`, or `flat` | `clean`    |
 | `--layers <layers>`   | Comma-separated layers to generate                    | All layers |
+| `--compile-proto`     | Automatically compile proto files before generation   | `false`    |
+| `--stubs-dir <path>`  | Output directory for compiled proto stubs             | `stubs`    |
 | `--verbose`           | Enable verbose logging                                | `false`    |
 | `--debug`             | Enable debug logging                                  | `false`    |
 
