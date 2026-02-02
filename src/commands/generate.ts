@@ -5,11 +5,14 @@ import { logger, LogLevel } from "../utils/logger.js";
 import {
   findServiceDescriptors,
   getDirectories,
+  findProtoDirectories,
+  findProtoFilesInDir,
 } from "../utils/file-finder.js";
 import { select, input, checkbox } from "@inquirer/prompts";
 import { loadServiceDescriptor } from "../core/load-service.js";
 import { resolvePaths } from "../core/resolve-paths.js";
 import { calculateImportPaths } from "../utils/import-path.js";
+import { compileProtoFiles } from "../utils/proto-compiler.js";
 import type {
   Ctx,
   InteractiveInput,
@@ -22,6 +25,38 @@ import { generateContract } from "../generators/contract-generator.js";
 import { generateRepository } from "../generators/repository-generator.js";
 import { generateService } from "../generators/service-generator.js";
 import { generateViewModel } from "../generators/view-model-generator.js";
+
+function findGeneratedServiceFiles(dir: string): string[] {
+  const resolvedDir = path.isAbsolute(dir)
+    ? dir
+    : path.join(process.cwd(), dir);
+
+  const files: string[] = [];
+
+  try {
+    const entries = fs.readdirSync(resolvedDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith("-service.ts")) {
+        files.push(entry.name);
+      }
+    }
+  } catch (error) {}
+
+  return files.sort();
+}
+
+function extractServiceName(descriptorPath: string): string {
+  const fileName = path.basename(descriptorPath, path.extname(descriptorPath));
+  const name = fileName
+    .replace(/-service$/, "Service")
+    .replace(/^exposed-/, "")
+    .split(/[-_]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+
+  return name || "UnknownService";
+}
 
 export const generateCommand = new Command("generate")
   .option("--interactive", "interactive mode")
@@ -39,6 +74,15 @@ export const generateCommand = new Command("generate")
     "clean",
   )
   .option("--layers <layers>", "comma separated layers to generate")
+  .option(
+    "--compile-proto",
+    "automatically compile proto files before generation",
+  )
+  .option(
+    "--stubs-dir <path>",
+    "output directory for compiled proto stubs",
+    "stubs",
+  )
   .option("--verbose", "enable verbose logging")
   .option("--debug", "enable debug logging")
   .action(async (opts: Options) => {
@@ -51,6 +95,22 @@ export const generateCommand = new Command("generate")
         logger.setLevel(LogLevel.WARN);
       }
       logger.debug("Starting generation with options:", opts);
+
+      if (opts.compileProto) {
+        if (!opts.protoDir) {
+          logger.error("--proto-dir is required when using --compile-proto");
+          process.exit(1);
+        }
+
+        const stubsDir = opts.stubsDir || "stubs";
+        await compileProtoFiles({
+          protoDir: opts.protoDir,
+          outDir: stubsDir,
+        });
+
+        opts.descriptor = `${stubsDir}/${opts.service}-service.ts`;
+        logger.info(`Auto-detected descriptor: ${opts.descriptor}`);
+      }
 
       let interactiveInputData: InteractiveInput = {
         descriptor: "",
@@ -72,39 +132,182 @@ export const generateCommand = new Command("generate")
 
       if (opts.interactive) {
         console.log("");
-        logger.info("🔍 Scanning for service descriptor files...");
-        const serviceFiles = findServiceDescriptors();
+        logger.info("👋 Welcome to Protosmith!\n");
 
-        logger.debug("Discovered service descriptor files:", serviceFiles);
-
-        if (serviceFiles.length === 0) {
-          logger.error(
-            "No service descriptor files found (files ending with -service.ts)",
-          );
-          logger.info(
-            "Make sure you have compiled your proto files first with protobuf-ts",
-          );
-          process.exit(1);
-        }
-
-        logger.info(`✓ Found ${serviceFiles.length} service descriptor(s)\n`);
-
-        // Interactive prompts with file selection
-        const descriptor = await select({
-          message: "Select service descriptor file:",
-          choices: serviceFiles,
+        const sourceChoice = await select({
+          message: "How would you like to generate code?",
+          choices: [
+            {
+              name: "From Proto files (auto-compile)",
+              description:
+                "Select proto directory, automatically compile to TypeScript, then generate layers",
+              value: "proto",
+            },
+            {
+              name: "From Compiled TypeScript files",
+              description:
+                "Use already compiled proto stubs to generate layers",
+              value: "compiled",
+            },
+          ],
         });
+
+        let descriptor = "";
+        let serviceName = "";
+
+        if (sourceChoice === "proto") {
+          logger.info("🔍 Scanning for proto directories...");
+          const protoDirs = findProtoDirectories();
+
+          logger.debug("Discovered proto directories:", protoDirs);
+
+          if (protoDirs.length === 0 || protoDirs.length === 1) {
+            logger.warn("No proto directories found with .proto files");
+            logger.info("Please create a proto directory with .proto files");
+            process.exit(1);
+          }
+
+          logger.info(
+            `✓ Found ${protoDirs.length - 1} proto director(y/ies)\n`,
+          );
+
+          const protoDir = await select({
+            message: "Select proto directory:",
+            choices: protoDirs.filter((d) => d !== "./"),
+          });
+
+          const protoFiles = findProtoFilesInDir(protoDir);
+
+          if (protoFiles.length === 0) {
+            logger.error(`No .proto files found in ${protoDir}`);
+            process.exit(1);
+          }
+
+          logger.info(`✓ Found ${protoFiles.length} proto file(s)\n`);
+
+          const selectedProtoFiles = await checkbox({
+            message: "Select proto files to compile:",
+            choices: protoFiles.map((file) => ({
+              name: file,
+              value: file,
+              checked: true,
+            })),
+            validate: (val) => {
+              return val.length > 0 || "Select at least one proto file";
+            },
+            theme: {
+              icon: {
+                checked: " ✔",
+                unchecked: " ✖",
+                cursor: "➔",
+              },
+            },
+          });
+
+          const stubsDirChoice = await select({
+            message: "Output directory for compiled stubs:",
+            choices: [
+              "./stubs",
+              "./compiled-proto",
+              "./generated",
+              ...getDirectories().filter(
+                (d) =>
+                  d !== "./stubs" &&
+                  d !== "./compiled-proto" &&
+                  d !== "./generated",
+              ),
+              "Enter custom path",
+            ],
+            default: "./stubs",
+          });
+
+          const stubsDir =
+            stubsDirChoice === "Enter custom path"
+              ? await input({
+                  message: "Enter custom stubs output path:",
+                  validate: (val: string) =>
+                    val.length > 0 || "Stubs directory is required",
+                })
+              : stubsDirChoice;
+
+          logger.step("COMPILE", "Compiling proto files...");
+          await compileProtoFiles({
+            protoDir,
+            outDir: stubsDir,
+            protoFiles: selectedProtoFiles,
+          });
+
+          logger.info(
+            `✓ Compiled ${selectedProtoFiles.length} proto file(s) to: ${stubsDir}`,
+          );
+
+          const generatedServiceFiles = findGeneratedServiceFiles(stubsDir);
+          logger.info(
+            `✓ Found ${generatedServiceFiles.length} service descriptor(s)\n`,
+          );
+
+          if (generatedServiceFiles.length === 0) {
+            logger.error("No service descriptor files found after compilation");
+            logger.info("Make sure your proto files define a service");
+            process.exit(1);
+          }
+
+          if (generatedServiceFiles.length === 1) {
+            const autoSelected = generatedServiceFiles[0]!;
+            descriptor = `${stubsDir}/${autoSelected}`;
+            serviceName = extractServiceName(autoSelected);
+            logger.info(`✓ Auto-selected descriptor: ${autoSelected}`);
+            logger.info(`✓ Auto-detected service name: ${serviceName}\n`);
+          } else {
+            const selectedServiceFile = await select({
+              message: "Select service descriptor:",
+              choices: generatedServiceFiles.map((file) => ({
+                name: file,
+                value: file,
+              })),
+            });
+            descriptor = `${stubsDir}/${selectedServiceFile}`;
+            serviceName = extractServiceName(selectedServiceFile);
+            logger.info(`✓ Selected descriptor: ${selectedServiceFile}`);
+            logger.info(`✓ Extracted service name: ${serviceName}\n`);
+          }
+        } else {
+          logger.info("🔍 Scanning for service descriptor files...");
+          const serviceFiles = findServiceDescriptors();
+
+          logger.debug("Discovered service descriptor files:", serviceFiles);
+
+          if (serviceFiles.length === 0) {
+            logger.error(
+              "No service descriptor files found (files ending with -service.ts)",
+            );
+            logger.info(
+              "Please compile your proto files first with: protosmith compile",
+            );
+            logger.info(
+              "Or choose 'From Proto files (auto-compile)' to compile automatically",
+            );
+            process.exit(1);
+          }
+
+          logger.info(`✓ Found ${serviceFiles.length} service descriptor(s)\n`);
+
+          descriptor = await select({
+            message: "Select service descriptor file:",
+            choices: serviceFiles,
+          });
+
+          serviceName = await input({
+            message: "Service name (e.g., CustomerService):",
+            validate: (val: string) =>
+              val.length > 0 || "Service name is required",
+          });
+        }
 
         const outDir = await select({
           message: "Select output directory:",
           choices: [...getDirectories(), "Enter custom path"],
           default: "src",
-        });
-
-        const serviceName = await input({
-          message: "Service name (e.g., CustomerService):",
-          validate: (val: string) =>
-            val.length > 0 || "Service name is required",
         });
 
         const moduleName = await input({

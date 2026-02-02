@@ -19,6 +19,75 @@ const IGNORE_DIRS = new Set([
 ]);
 
 /**
+ * Find directories containing .proto files
+ */
+export function findProtoDirectories(
+  rootDir: string = process.cwd(),
+  maxDepth: number = 4,
+): string[] {
+  const results: Set<string> = new Set();
+
+  function search(dir: string, depth: number) {
+    if (depth > maxDepth) return;
+
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      let hasProtoFile = false;
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+          if (!IGNORE_DIRS.has(entry.name)) {
+            search(fullPath, depth + 1);
+          }
+        } else if (entry.isFile() && entry.name.endsWith(".proto")) {
+          hasProtoFile = true;
+        }
+      }
+
+      if (hasProtoFile) {
+        const relativePath = path.relative(rootDir, dir);
+        results.add(`./${relativePath}`);
+      }
+    } catch (error) {}
+  }
+
+  search(rootDir, 0);
+
+  const sorted = Array.from(results).sort();
+  if (sorted.length === 0 || !sorted.includes("./")) {
+    sorted.unshift("./");
+  }
+
+  return sorted;
+}
+
+/**
+ * Find all .proto files in a specific directory
+ */
+export function findProtoFilesInDir(
+  dir: string,
+  rootDir: string = process.cwd(),
+): string[] {
+  const resolvedDir = path.isAbsolute(dir) ? dir : path.join(rootDir, dir);
+
+  const files: string[] = [];
+
+  try {
+    const entries = fs.readdirSync(resolvedDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".proto")) {
+        files.push(entry.name);
+      }
+    }
+  } catch (error) {}
+
+  return files.sort();
+}
+
+/**
  * Recursively find files matching a pattern
  */
 export function findFiles(options: FindFilesOptions): string[] {
@@ -62,7 +131,7 @@ export function findFiles(options: FindFilesOptions): string[] {
  * Find all compiled proto service files
  */
 export function findServiceDescriptors(
-  rootDir: string = process.cwd()
+  rootDir: string = process.cwd(),
 ): string[] {
   const allFiles = findFiles({
     pattern: /-service\.ts$/,

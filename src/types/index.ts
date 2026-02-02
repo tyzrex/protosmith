@@ -48,6 +48,8 @@ export interface Options {
   out?: string;
   structure?: "clean" | "modules" | "flat";
   layers?: string;
+  compileProto?: boolean;
+  stubsDir?: string;
   verbose?: boolean;
   debug?: boolean;
 }

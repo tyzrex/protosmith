@@ -18,5 +18,14 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
     "baseUrl": "./"
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "modules",
+    "transport",
+    "test-stubs",
+    "src/modules"
+  ]
 }
