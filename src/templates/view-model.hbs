@@ -24,13 +24,13 @@ export class {{schema.name}}ViewModel {
 	}
 
 {{#each schema.methods}}
-	async {{name}}(request: {{input}}): Promise<{{output}}> {
+	async {{name}}(request: {{input}}): {
 		this.state.set({ status: 'loading', message: 'Processing {{name}}...' });
 		try {
-			const response: {{output}} = await this.repo.{{name}}(request);
+			const response = await this.repo.{{name}}(request);
 			this.state.set({ status: 'success', message: '{{name}} completed successfully.' });
-		} catch (error) {
-			this.state.set({ status: 'error', message: 'Failed to process {{name}}.' });
+		} catch (error: any) {
+			this.state.set({ status: 'error', message: error.message || 'Failed to process {{name}}.' });
 			logger.error('Error in {{name}}:', error);
 		}
 	}
