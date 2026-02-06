@@ -13,7 +13,7 @@ export const {{name}} = (
   retries: number = 1
 ): Promise<{{output}}> =>
   {
-    return grpcInterceptor.intercept<{{../schema.name}}Client>({
+    return grpcInterceptor.intercept<{{../schema.name}}Client, {{input}}, {{output}}>({
       client: serviceClients.{{../module}}ServiceClient,
       method: (client) => client.{{name}}.bind(client),
       args: request,

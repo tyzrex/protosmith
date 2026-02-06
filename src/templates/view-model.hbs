@@ -24,7 +24,7 @@ export class {{schema.name}}ViewModel {
 	}
 
 {{#each schema.methods}}
-	async {{name}}(request: {{input}}): {
+	async {{name}}(request: {{input}}) {
 		this.state.set({ status: 'loading', message: 'Processing {{name}}...' });
 		try {
 			const response = await this.repo.{{name}}(request);
